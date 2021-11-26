@@ -1,15 +1,11 @@
-package com.example.mvicalculator
+package com.example.mvicalculator.common
 
 import android.text.Editable
 import android.text.TextWatcher
 import androidx.appcompat.widget.AppCompatEditText
-import com.example.mvicalculator.calculator.CalculatorState
+import com.example.mvicalculator.calculator.*
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
-
-fun Disposable.addTo(disposable: CompositeDisposable) {
-    disposable.add(this)
-}
 
 fun Editable.getInt(): Int? {
     if (this.isNotEmpty() && this.toString() != "-") {
@@ -19,12 +15,12 @@ fun Editable.getInt(): Int? {
     return null
 }
 
-fun CalculatorState.submitInputAction(action: InputAction): CalculatorState =
+fun CalculatorState.submitInputAction(action: Action.InputAction): CalculatorState =
     when (action) {
-        is FirstInput -> this.copy(firstInput = action.digit)
-        is SecondInput -> this.copy(secondInput = action.digit)
-        is ResultInput -> this.copy(result = action.digit)
-        is DifficultResultInput -> this.copy(result = action.digit)
+        is Action.FirstInput -> this.copy(firstInput = action.digit)
+        is Action.SecondInput -> this.copy(secondInput = action.digit)
+        is Action.ResultInput -> this.copy(result = action.digit)
+        is Action.DifficultResultInput -> this.copy(result = action.digit)
     }
 
 fun AppCompatEditText.setDigit(digit: Int?) {

@@ -10,33 +10,28 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
-import com.example.mvicalculator.*
+import com.example.mvicalculator.common.applyWithoutTextWatcherTriggering
+import com.example.mvicalculator.common.getInt
+import com.example.mvicalculator.common.setDigit
 import com.example.mvicalculator.databinding.FragmentCalculatorBinding
+import com.google.android.material.internal.TextWatcherAdapter
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.PublishSubject
 import io.reactivex.subjects.Subject
 
-/**
- * A simple [Fragment] subclass as the default destination in the navigation.
- */
 class CalculatorFragment : Fragment() {
 
-    private var _binding: FragmentCalculatorBinding? = null
+    private lateinit var binding: FragmentCalculatorBinding
 
     private lateinit var viewModel: CalculatorViewModel
-
-    private val binding get() = _binding!!
+    private val disposables = CompositeDisposable()
 
     private val actionSubject: Subject<Action> = PublishSubject.create()
 
-    private val disposables = CompositeDisposable()
-
     private lateinit var firstTextWatcher: TextWatcher
-
     private lateinit var secondTextWatcher: TextWatcher
-
     private lateinit var resultTextWatcher: TextWatcher
 
     override fun onAttach(context: Context) {
@@ -48,73 +43,66 @@ class CalculatorFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-
-        _binding = FragmentCalculatorBinding.inflate(inflater, container, false)
+    ): View {
+        binding = FragmentCalculatorBinding.inflate(inflater, container, false)
         return binding.root
-
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        viewModel
+
+        initViews()
+
+        disposables.add(viewModel
             .observeState(actionSubject.hide())
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe { state ->
                 with(binding) {
                     etFirst.applyWithoutTextWatcherTriggering(firstTextWatcher) {
-                        etFirst.setDigit(
-                            state.firstInput
-                        )
+                        etFirst.setDigit(state.firstInput)
                     }
                     etSecond.applyWithoutTextWatcherTriggering(secondTextWatcher) {
-                        etSecond.setDigit(
-                            state.secondInput
-                        )
+                        etSecond.setDigit(state.secondInput)
                     }
                     etResult.applyWithoutTextWatcherTriggering(resultTextWatcher) {
-                        etResult.setDigit(
-                            state.result
-                        )
+                        etResult.setDigit(state.result)
                     }
                     pb.isVisible = state.isLoading
                 }
-            }.addTo(disposables)
+            })
     }
 
-    override fun onStart() {
-        super.onStart()
-
+    private fun initViews() {
         with(binding) {
             firstTextWatcher = createTextWatcher {
                 it?.getInt()?.let { digit ->
-                    actionSubject.onNext(FirstInput(digit))
+                    actionSubject.onNext(Action.FirstInput(digit))
                 }
             }
             etFirst.addTextChangedListener(firstTextWatcher)
             secondTextWatcher = createTextWatcher {
                 it?.getInt()?.let { digit ->
-                    actionSubject.onNext(SecondInput(digit))
+                    actionSubject.onNext(Action.SecondInput(digit))
                 }
             }
             etSecond.addTextChangedListener(secondTextWatcher)
             resultTextWatcher = createTextWatcher {
                 it?.getInt()?.let { digit ->
                     if (digit < 0) actionSubject.onNext(
-                        DifficultResultInput(
+                        Action.DifficultResultInput(
                             digit,
                             getAllInputsInfo()
                         )
                     )
-                    else actionSubject.onNext(ResultInput(digit))
+                    else actionSubject.onNext(Action.ResultInput(digit))
                 }
             }
             etResult.addTextChangedListener(resultTextWatcher)
         }
     }
 
-    fun getAllInputsInfo(): AllInputsInfo =
+    private fun getAllInputsInfo(): AllInputsInfo =
         with(binding) {
             AllInputsInfo(
                 etFirst.text?.getInt(),
@@ -123,25 +111,17 @@ class CalculatorFragment : Fragment() {
             )
         }
 
-    fun createTextWatcher(listener: (Editable?) -> Unit): TextWatcher {
-        return object : TextWatcher {
-            override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
-
+    private fun createTextWatcher(listener: (Editable?) -> Unit): TextWatcher {
+        return object : TextWatcherAdapter() {
+            override fun afterTextChanged(newText: Editable) {
+                listener.invoke(newText)
             }
-
-            override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
-
-            }
-
-            override fun afterTextChanged(p0: Editable?) {
-                listener.invoke(p0)
-            }
-
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    companion object {
+
+        fun newInstance(): CalculatorFragment =
+            CalculatorFragment()
     }
 }

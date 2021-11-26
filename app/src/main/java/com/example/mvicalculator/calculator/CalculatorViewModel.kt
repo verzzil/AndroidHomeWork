@@ -1,29 +1,26 @@
 package com.example.mvicalculator.calculator
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.example.mvicalculator.*
+import com.example.mvicalculator.common.submitInputAction
 import com.freeletics.rxredux.reduxStore
 import io.reactivex.Observable
 import java.util.concurrent.TimeUnit
 
 class CalculatorViewModel : ViewModel() {
-    val initialState = CalculatorState()
+    private val initialState = CalculatorState()
 
-    var previousAction: InputAction? = null
-    var lastAction: InputAction? = null
-
-    // var actionEmitter : BehaviorSubject<Action> = BehaviorSubject.create()
+    private var previousAction: Action.InputAction? = null
+    private var lastAction: Action.InputAction? = null
 
     fun observeState(upstreamActions: Observable<Action>): Observable<CalculatorState> =
         upstreamActions
             .switchMap { action ->
-                Log.d("MYTAG", "switch map $action")
-                if (action is DifficultResultInput) {
+                if (action is Action.DifficultResultInput) {
                     replaceLastAction(action)
                     return@switchMap Observable
                         .concat(
-                            Observable.just(StartLoading(action.info)),
+                            Observable.just(Action.StartLoading(action.info)),
                             Observable.just(action).delay(5, TimeUnit.SECONDS)
                         )
                 }
@@ -32,12 +29,11 @@ class CalculatorViewModel : ViewModel() {
             .reduxStore(
                 initialState, listOf()
             ) { state, action ->
-                Log.d("MYTAG", "redux action: $action")
                 when (action) {
-                    is StartLoading -> {
+                    is Action.StartLoading -> {
                         getLoadingState(state, action.info)
                     }
-                    is InputAction -> {
+                    is Action.InputAction -> {
                         replaceLastAction(action)
                         previousAction ?: run {
                             return@reduxStore state.submitInputAction(action)
@@ -49,22 +45,22 @@ class CalculatorViewModel : ViewModel() {
             }.distinctUntilChanged()
 
 
-    fun replaceLastAction(action: InputAction) {
+    private fun replaceLastAction(action: Action.InputAction) {
         when (action) {
-            is FirstInput -> if (lastAction !is FirstInput) {
+            is Action.FirstInput -> if (lastAction !is Action.FirstInput) {
                 previousAction = lastAction
             }
-            is SecondInput -> if (lastAction !is SecondInput) {
+            is Action.SecondInput -> if (lastAction !is Action.SecondInput) {
                 previousAction = lastAction
             }
-            is ResultInput -> if (lastAction !is ResultInput) {
+            is Action.ResultInput -> if (lastAction !is Action.ResultInput) {
                 previousAction = lastAction
             }
         }
         lastAction = action
     }
 
-    fun getLoadingState(
+    private fun getLoadingState(
         currentState: CalculatorState,
         allInputsInfo: AllInputsInfo
     ): CalculatorState =
@@ -77,15 +73,11 @@ class CalculatorViewModel : ViewModel() {
             )
         }
 
-    fun calculateResultState(): CalculatorState {
+    private fun calculateResultState(): CalculatorState {
         val actionList = listOf(lastAction, previousAction)
-        var firstDigit = actionList.find { action -> action is FirstInput }?.digit
-        var secondDigit = actionList.find { action -> action is SecondInput }?.digit
-        var resultDigit = actionList.find { action -> action is ResultInput }?.digit
-        Log.d(
-            "MYTAG",
-            "calculateResult state last actions: $actionList \n first: :$firstDigit \n second: $secondDigit third: $resultDigit"
-        )
+        var firstDigit = actionList.find { action -> action is Action.FirstInput }?.digit
+        var secondDigit = actionList.find { action -> action is Action.SecondInput }?.digit
+        var resultDigit = actionList.find { action -> action is Action.ResultInput }?.digit
         firstDigit ?: run {
             firstDigit = resultDigit!! - secondDigit!!
         }
@@ -95,10 +87,6 @@ class CalculatorViewModel : ViewModel() {
         resultDigit ?: run {
             resultDigit = firstDigit!! + secondDigit!!
         }
-        Log.d(
-            "MYTAG",
-            "calculateResult result:: first: :$firstDigit \n second: $secondDigit third: $resultDigit"
-        )
 
         return CalculatorState(
             firstDigit,
